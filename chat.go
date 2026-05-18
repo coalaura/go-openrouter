@@ -535,6 +535,7 @@ const (
 	AudioFormatAac   AudioFormat = AudioFormat("aac")
 	AudioFormatOgg   AudioFormat = AudioFormat("ogg")
 	AudioFormatM4a   AudioFormat = AudioFormat("m4a")
+	AudioFormatWebm  AudioFormat = AudioFormat("webm")
 )
 
 // Here we define the supported audio voices for the ChatCompletionAudioConfig struct, based on the OpenRouter documentation.

@@ -1,30 +1,11 @@
 package openrouter
 
-import (
-	"encoding/base64"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-)
-
 // UserMessageWithAudioFromFile creates a user message with the given prompt text and audio file.
-// It reads the audio file (mp3 or wav) and creates a message with the embedded audio data.
+// It reads the audio file and creates a message with the embedded audio data.
 func UserMessageWithAudioFromFile(promptText, filePath string) (ChatCompletionMessage, error) {
-	fileData, err := os.ReadFile(filePath)
+	fileData, format, err := readAudioFile(filePath)
 	if err != nil {
 		return ChatCompletionMessage{}, err
-	}
-
-	ext := filepath.Ext(filePath)
-	var format AudioFormat
-	switch strings.ToLower(ext) {
-	case ".mp3":
-		format = AudioFormatMp3
-	case ".wav":
-		format = AudioFormatWav
-	default:
-		return ChatCompletionMessage{}, fmt.Errorf("unsupported audio format: %s", ext)
 	}
 
 	msg := UserMessageWithAudio(promptText, fileData, format)
@@ -53,13 +34,11 @@ func UserMessageWithAudio(promptText string, audio []byte, format AudioFormat) C
 
 // chatMessagePartWithAudio creates a ChatMessagePart which contains the given audio content.
 func chatMessagePartWithAudio(audio []byte, format AudioFormat) ChatMessagePart {
-	audioEncoded := base64.StdEncoding.EncodeToString(audio)
-
 	msg := ChatMessagePart{
 		Type: ChatMessagePartTypeInputAudio,
 		InputAudio: &ChatMessageInputAudio{
 			Format: format,
-			Data:   audioEncoded,
+			Data:   encodeAudio(audio),
 		},
 	}
 

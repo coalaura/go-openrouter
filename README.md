@@ -43,6 +43,8 @@ https://openrouter.ai/docs/api-reference/overview
 - [x] Response caching
 - [x] Web search
 - [x] Multimodal [Images, PDFs, Audio]
+- [x] Text-to-speech
+- [x] Speech-to-text transcription
 - [x] Usage fields
 
 ## Usage
@@ -278,6 +280,49 @@ if err != nil {
 defer stream.Close()
 
 metadata := stream.ResponseCacheMetadata()
+```
+
+### Audio speech and transcription
+
+Use `CreateSpeech` for OpenRouter's dedicated text-to-speech endpoint. The
+response is raw audio bytes plus useful headers.
+
+```go
+speech, err := client.CreateSpeech(ctx, openrouter.SpeechRequest{
+	Model:          "openai/gpt-4o-mini-tts-2025-12-15",
+	Input:          "Hello from go-openrouter.",
+	Voice:          "alloy",
+	ResponseFormat: openrouter.SpeechResponseFormatMp3,
+})
+if err != nil {
+	fmt.Printf("CreateSpeech error: %v\n", err)
+	return
+}
+
+fmt.Printf("generated %d bytes, content-type=%s\n", len(speech.Audio), speech.ContentType)
+```
+
+Use `CreateTranscription` for speech-to-text. Audio input must be base64
+encoded; `NewTranscriptionInputAudioFromFile` handles that for local files.
+
+```go
+inputAudio, err := openrouter.NewTranscriptionInputAudioFromFile("meeting.wav")
+if err != nil {
+	fmt.Printf("audio error: %v\n", err)
+	return
+}
+
+transcription, err := client.CreateTranscription(ctx, openrouter.TranscriptionRequest{
+	Model:      "openai/whisper-large-v3",
+	InputAudio: inputAudio,
+	Language:   "en",
+})
+if err != nil {
+	fmt.Printf("CreateTranscription error: %v\n", err)
+	return
+}
+
+fmt.Println(transcription.Text)
 ```
 
 ### Other examples:
