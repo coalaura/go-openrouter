@@ -285,11 +285,12 @@ metadata := stream.ResponseCacheMetadata()
 ### Audio speech and transcription
 
 Use `CreateSpeech` for OpenRouter's dedicated text-to-speech endpoint. The
-response is raw audio bytes plus useful headers.
+response is raw audio bytes, so a small example can write them directly to a
+file.
 
 ```go
 speech, err := client.CreateSpeech(ctx, openrouter.SpeechRequest{
-	Model:          "openai/gpt-4o-mini-tts-2025-12-15",
+	Model:          "elevenlabs/eleven-turbo-v2",
 	Input:          "Hello from go-openrouter.",
 	Voice:          "alloy",
 	ResponseFormat: openrouter.SpeechResponseFormatMp3,
@@ -299,7 +300,10 @@ if err != nil {
 	return
 }
 
-fmt.Printf("generated %d bytes, content-type=%s\n", len(speech.Audio), speech.ContentType)
+if err := os.WriteFile("speech.mp3", speech.Audio, 0o644); err != nil {
+	fmt.Printf("write speech file error: %v\n", err)
+	return
+}
 ```
 
 Use `CreateTranscription` for speech-to-text. Audio input must be base64
