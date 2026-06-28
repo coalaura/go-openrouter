@@ -273,7 +273,8 @@ func (c *Client) CreateImagesStream(
 					return
 				}
 
-				if strings.HasPrefix(string(line), ": OPENROUTER PROCESSING") || string(line) == "\n" {
+				trimmed := strings.TrimSpace(string(line))
+				if trimmed == "" || strings.HasPrefix(trimmed, ":") {
 					continue
 				}
 
@@ -284,6 +285,7 @@ func (c *Client) CreateImagesStream(
 					slog.Error("failed to decode image stream", "error", err, "line", string(line))
 					return
 				}
+
 				stream <- chunk
 			}
 		}
