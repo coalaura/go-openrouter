@@ -9,6 +9,7 @@ const (
 	listModelsSuffix           = "/models"
 	listUserModelsSuffix       = "/models/user"
 	listEmbeddingsModelsSuffix = "/embeddings/models"
+	listImageModelsSuffix      = "/images/models"
 )
 
 type ModelArchitecture struct {
@@ -48,6 +49,29 @@ type Model struct {
 	HuggingFaceID       *string           `json:"hugging_face_id,omitempty"`
 	PerRequestLimits    any               `json:"per_request_limits,omitempty"`
 	SupportedParameters []string          `json:"supported_parameters,omitempty"`
+}
+
+type ImageModelArchitecture struct {
+	InputModalities  []string `json:"input_modalities"`
+	OutputModalities []string `json:"output_modalities"`
+}
+
+type CapabilityDescriptor struct {
+	Type   string   `json:"type"`
+	Values []string `json:"values,omitempty"`
+	Max    *float64 `json:"max,omitempty"`
+	Min    *float64 `json:"min,omitempty"`
+}
+
+type ImageModel struct {
+	ID                  string                          `json:"id"`
+	Name                string                          `json:"name"`
+	Created             int64                           `json:"created"`
+	Description         string                          `json:"description"`
+	Endpoints           string                          `json:"endpoints"`
+	Architecture        ImageModelArchitecture          `json:"architecture"`
+	SupportedParameters map[string]CapabilityDescriptor `json:"supported_parameters"`
+	SupportsStreaming   bool                            `json:"supports_streaming"`
 }
 
 func (c *Client) ListModels(ctx context.Context) (models []Model, err error) {
@@ -104,6 +128,29 @@ func (c *Client) ListEmbeddingsModels(ctx context.Context) ([]Model, error) {
 
 	var response struct {
 		Data []Model `json:"data"`
+	}
+
+	if err := c.sendRequest(req, &response); err != nil {
+		return nil, err
+	}
+
+	return response.Data, nil
+}
+
+// ListImageModels returns all available image generation models and their properties.
+// API reference: https://openrouter.ai/docs/api/api-reference/images/list-image-models
+func (c *Client) ListImageModels(ctx context.Context) ([]ImageModel, error) {
+	req, err := c.newRequest(
+		ctx,
+		http.MethodGet,
+		c.fullURL(listImageModelsSuffix),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var response struct {
+		Data []ImageModel `json:"data"`
 	}
 
 	if err := c.sendRequest(req, &response); err != nil {
