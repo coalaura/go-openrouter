@@ -286,6 +286,18 @@ func (c *Client) CreateImagesStream(
 					return
 				}
 
+				// Fallback: If received a standard response format instead of a stream chunk
+				if chunk.Type == "" && chunk.B64JSON == "" {
+					var fallback ImageGenerationResponse
+
+					if err := json.Unmarshal(line, &fallback); err == nil && len(fallback.Data) > 0 {
+						chunk.Type = ImageStreamChunkTypeCompleted
+						chunk.B64JSON = fallback.Data[0].B64JSON
+						chunk.Created = fallback.Created
+						chunk.Usage = fallback.Usage
+					}
+				}
+
 				stream <- chunk
 			}
 		}
