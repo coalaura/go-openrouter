@@ -143,7 +143,6 @@ type ImageGenerationUsage struct {
 	Cost                    *float64                                     `json:"cost,omitempty"`
 	CostDetails             *CostDetails                                 `json:"cost_details,omitempty"`
 	IsBYOK                  bool                                         `json:"is_byok"`
-	Iterations              []any                                        `json:"iterations,omitempty"`
 	PromptTokens            int                                          `json:"prompt_tokens"`
 	PromptTokensDetails     *ImageGenerationUsagePromptTokensDetails     `json:"prompt_tokens_details,omitempty"`
 	ServerToolUse           *ImageGenerationUsageServerToolUse           `json:"server_tool_use,omitempty"`
@@ -158,8 +157,23 @@ type ImageGenerationResponse struct {
 	Usage   *ImageGenerationUsage `json:"usage,omitempty"`
 }
 
+type ImageGenerationStreamChunkType string
+
+const (
+	ImageStreamChunkTypePartialImage ImageGenerationStreamChunkType = "image_generation.partial_image"
+	ImageStreamChunkTypeCompleted    ImageGenerationStreamChunkType = "image_generation.completed"
+)
+
+type ImageGenerationStreamChunk struct {
+	Type              ImageGenerationStreamChunkType `json:"type"`
+	PartialImageIndex *int                           `json:"partial_image_index,omitempty"`
+	B64JSON           string                         `json:"b64_json,omitempty"`
+	Created           int64                          `json:"created,omitempty"`
+	Usage             *ImageGenerationUsage          `json:"usage,omitempty"`
+}
+
 type ImageGenerationStream struct {
-	stream   <-chan ImageGenerationResponse
+	stream   <-chan ImageGenerationStreamChunk
 	done     chan struct{}
 	response *http.Response
 }
@@ -194,8 +208,12 @@ func (c *Client) CreateImagesStream(
 	ctx context.Context,
 	request ImageGenerationRequest,
 ) (*ImageGenerationStream, error) {
-	if request.Stream == nil || !*request.Stream {
-		request.Stream = ptr(true)
+	if request.Stream == nil {
+		b := true
+		request.Stream = &b
+	} else if !*request.Stream {
+		b := true
+		request.Stream = &b
 	}
 
 	req, err := c.newRequest(
@@ -226,7 +244,7 @@ func (c *Client) CreateImagesStream(
 		return nil, errors.New("unexpected status code: " + resp.Status)
 	}
 
-	stream := make(chan ImageGenerationResponse)
+	stream := make(chan ImageGenerationStreamChunk)
 	done := make(chan struct{})
 
 	go func() {
@@ -261,7 +279,7 @@ func (c *Client) CreateImagesStream(
 
 				line = bytes.TrimPrefix(line, []byte("data:"))
 
-				var chunk ImageGenerationResponse
+				var chunk ImageGenerationStreamChunk
 				if err := json.Unmarshal(line, &chunk); err != nil {
 					slog.Error("failed to decode image stream", "error", err, "line", string(line))
 					return
@@ -279,15 +297,15 @@ func (c *Client) CreateImagesStream(
 }
 
 // Recv reads the next chunk from the stream.
-func (s *ImageGenerationStream) Recv() (ImageGenerationResponse, error) {
+func (s *ImageGenerationStream) Recv() (ImageGenerationStreamChunk, error) {
 	select {
 	case chunk, ok := <-s.stream:
 		if !ok {
-			return ImageGenerationResponse{}, io.EOF
+			return ImageGenerationStreamChunk{}, io.EOF
 		}
 		return chunk, nil
 	case <-s.done:
-		return ImageGenerationResponse{}, io.EOF
+		return ImageGenerationStreamChunk{}, io.EOF
 	}
 }
 
