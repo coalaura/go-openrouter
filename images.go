@@ -204,6 +204,7 @@ func (c *Client) CreateImages(
 }
 
 // CreateImagesStream generates an image with streaming support.
+// CreateImagesStream generates an image with streaming support.
 func (c *Client) CreateImagesStream(
 	ctx context.Context,
 	request ImageGenerationRequest,
@@ -251,6 +252,37 @@ func (c *Client) CreateImagesStream(
 		defer close(stream)
 		defer resp.Body.Close()
 
+		// If the model does not support streaming we get a regular application/json response
+		contentType := strings.ToLower(resp.Header.Get("Content-Type"))
+		if strings.Contains(contentType, "application/json") {
+			var fallback ImageGenerationResponse
+			if err := json.NewDecoder(resp.Body).Decode(&fallback); err != nil {
+				slog.Error("failed to decode non-streaming image response", "error", err)
+				return
+			}
+
+			for i, img := range fallback.Data {
+				idx := i
+				chunk := ImageGenerationStreamChunk{
+					Type:              ImageStreamChunkTypeCompleted,
+					PartialImageIndex: &idx,
+					B64JSON:           img.B64JSON,
+					Created:           fallback.Created,
+					Usage:             fallback.Usage,
+				}
+
+				select {
+				case <-done:
+					return
+				case <-ctx.Done():
+					return
+				case stream <- chunk:
+				}
+			}
+
+			return
+		}
+
 		reader := bufio.NewReader(resp.Body)
 		for {
 			select {
@@ -284,18 +316,6 @@ func (c *Client) CreateImagesStream(
 				if err := json.Unmarshal(line, &chunk); err != nil {
 					slog.Error("failed to decode image stream", "error", err, "line", string(line))
 					return
-				}
-
-				// Fallback: If received a standard response format instead of a stream chunk
-				if chunk.Type == "" && chunk.B64JSON == "" {
-					var fallback ImageGenerationResponse
-
-					if err := json.Unmarshal(line, &fallback); err == nil && len(fallback.Data) > 0 {
-						chunk.Type = ImageStreamChunkTypeCompleted
-						chunk.B64JSON = fallback.Data[0].B64JSON
-						chunk.Created = fallback.Created
-						chunk.Usage = fallback.Usage
-					}
 				}
 
 				stream <- chunk
