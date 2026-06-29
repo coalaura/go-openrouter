@@ -76,8 +76,15 @@ const (
 	ImageResolution4K  ImageResolution = "4K"
 )
 
+type ImageInputReferenceType string
+
+const (
+	ImageInputReferenceTypeImageURL ImageInputReferenceType = "image_url"
+)
+
 type ImageInputReference struct {
-	ImageURL ImageURLRef `json:"image_url"`
+	Type     ImageInputReferenceType `json:"type"`
+	ImageURL ImageURLRef             `json:"image_url"`
 }
 
 type ImageURLRef struct {
